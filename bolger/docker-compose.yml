@@ -1,0 +1,15 @@
+version: "3"
+services:
+  bolger-db:
+    image: mongo
+  bolger-web:
+    image: "bolger/bolger-web:${BOLGER_WEB_DOCKER_IMAGE_TAG:-latest}"
+    environment:
+      - MONGODB_HOST=bolger-db
+      - MONGODB_PORT=27017
+    depends_on:
+      - bolger-db
+  bolger-ui:
+    image: "bolger/bolger-ui:${BOLGER_UI_DOCKER_IMAGE_TAG:-latest}"
+    depends_on:
+      - bolger-web

@@ -1,0 +1,41 @@
+version: "3"
+services:
+  bolger-db:
+    volumes:
+      # setup bolger database and user account
+      - $PWD/bolger-web/mongo-entrypoint/:/docker-entrypoint-initdb.d
+    ports:
+      - 57018:27017
+  bolger-web:
+    ports:
+      - 58091:8090
+  it:
+    image: maven
+    working_dir: /usr/src/mymaven/bolger-e2e
+    command: mvn verify -Dspring.profiles.active=it
+    volumes:
+      - $PWD:/usr/src/mymaven
+      - ~/.m2:/root/.m2
+      - /tmp/downloads:/tmp/downloads
+    environment:
+      - MONGODB_HOST=mongo
+      - MONGODB_PORT=27017
+      - HOST_DOWNLOAD_DIR=/tmp/downloads
+    links:
+      - bolger-db:mongo
+    depends_on:
+      - bolger-ui
+      - chrome
+      - bolger-db
+  chrome:
+    image: selenium/standalone-chrome:3.8.1
+    volumes:
+          - /dev/shm:/dev/shm
+          - /tmp/downloads:/tmp/downloads
+    ports:
+      - 4444:4444
+    links:
+      - bolger-ui
+  bolger-ui:
+    ports:
+      - 443:443

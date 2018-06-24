@@ -1,0 +1,36 @@
+version: "3"
+services:
+  bolger-db:
+    image: mongo
+    container_name: cdm-mongo-db
+    ports:
+      - 27017:27017
+    volumes:
+      # setup bolger database and user account
+      - $PWD/mongo-entrypoint/:/docker-entrypoint-initdb.d
+    networks:
+      - application
+
+  bolger-web:
+    image: aurotfp/bolger-web:latest
+    environment:
+      - MONGODB_HOST=bolger-db
+      - MONGODB_PORT=27017
+    networks:
+      - web
+      - application
+    ports:
+      - "8090:8090"
+
+  bolger-ui:
+    image: aurotfp/bolger-ui:latest
+    ports:
+      - "443:443"
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
+  application:
+    driver: bridge

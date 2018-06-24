@@ -1,0 +1,46 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+# dependencies
+/**/node_modules
+
+# testing
+/**/coverage
+/**/__snapshots__
+# build
+/**/build
+
+# temp
+*.swp
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+*-result.xml
+test-results.json
+
+.idea
+*.iml
+
+# #build files
+target/
+dist/
+
+.project
+.settings/
+bolger-e2e/.classpath
+bolger-e2e/.project
+bolger-e2e/.settings/
+
+bolger-e2e/chromedriver
+
+bolger-ui/.classpath
+bolger-ui/.project
+bolger-ui/.settings/
+bolger-web/.classpath
+bolger-web/.settings/
+yarn.lock

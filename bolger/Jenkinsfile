@@ -1,0 +1,101 @@
+node {
+try {
+    def WORKSPACE_NAME = sh(
+            script: 'echo ${WORKSPACE##*/}',
+            returnStdout: true
+    ).trim()
+
+    def BOLGER_WEB_DOCKER_IMAGE_TAG = "${WORKSPACE_NAME}_${BUILD_ID}"
+    def BOLGER_UI_DOCKER_IMAGE_TAG = "${WORKSPACE_NAME}_${BUILD_ID}"
+
+    withEnv([
+            "JENKINS_TMP_HOST_BUILD=${JENKINS_TMP_HOST_BUILD}",
+            "JENKINS_TMP_CONTAINER_BUILD_PATH=${JENKINS_TMP_CONTAINER_BUILD}/${WORKSPACE_NAME}/${BUILD_ID}",
+            "JENKINS_TMP_HOST_BUILD_PATH=${JENKINS_TMP_HOST_BUILD}/${WORKSPACE_NAME}/${BUILD_ID}",
+            "BOLGER_WEB_DOCKER_IMAGE_TAG=${BOLGER_WEB_DOCKER_IMAGE_TAG}",
+            "BOLGER_UI_DOCKER_IMAGE_TAG=${BOLGER_UI_DOCKER_IMAGE_TAG}"
+    ]) {
+
+        try {
+        stage('Clone repository') {
+            checkout scm
+        }
+
+        try {
+            stage('Build UI') {
+                sh 'mkdir -p $JENKINS_TMP_CONTAINER_BUILD_PATH'
+                sh 'cp -R ./ $JENKINS_TMP_CONTAINER_BUILD_PATH'
+
+                sh 'docker run -v $JENKINS_TMP_HOST_BUILD_PATH:/tmp/src/cdc-onboarding -v $JENKINS_TMP_HOST_BUILD/.npm:/root/.npm -w /tmp/src/cdc-onboarding/bolger-ui --rm --name bolger-ui-build node:9.5.0 /bin/bash -c "npm install && npm run test:dist && npm run dist"'
+
+                sh 'cp -R $JENKINS_TMP_CONTAINER_BUILD_PATH/bolger-ui/dist ./bolger-ui/'
+            }
+        } finally {
+//            // ensure the mapped cache, node_modules and dist/target can be cleaned up by host/jenkins
+            sh 'docker run -v $JENKINS_TMP_HOST_BUILD_PATH:/tmp/src/cdc-onboarding -v $JENKINS_TMP_HOST_BUILD/.npm:/root/.npm -w /tmp/src/cdc-onboarding --rm node:9.5.0 /bin/bash -c "chmod -R go+rw /root/.npm && chmod -R go+rw ./"'
+            sh 'rm -rf $JENKINS_TMP_CONTAINER_BUILD_PATH'
+        }
+
+        stage('Build Service') {
+            dir('bolger-web') {
+                sh 'mvn clean install -Dcdc-onboarding-web.docker-image.tag=${BOLGER_WEB_DOCKER_IMAGE_TAG}'
+            }
+        }
+
+        stage('Build UI image') {
+            dir('bolger-ui') {
+                docker.build("aurotfp/bolger-ui:${BOLGER_UI_DOCKER_IMAGE_TAG}")
+            }
+        }
+
+        // The container exits with the following error if using the image built from below step.
+        // Temp workaround is using dockerfile-maven plugin to build the image as part of the `mvn clean install` above
+        // [0m[32mbolger-web_1  |[0m 2018-03-08T03:16:16.614745877Z Error: Unable to access jarfile bolger-web.jar
+//        stage('Build Web Services image') {
+//            dir('bolger-web') {
+//                docker.build("aurotfp/bolger-web")
+//            }
+//        }
+
+        stage('Checkstyle and Build E2E package') {
+            dir('bolger-e2e') {
+                sh 'mvn checkstyle:check clean package'
+            }
+        }
+
+        stage('Bring down previous instances') {
+            sh 'docker-compose -f ./docker-compose.yml -f ./docker-compose.it.yml down -v'
+        }
+
+        try {
+            stage('Run integration tests') {
+                sh 'mkdir -p $JENKINS_TMP_CONTAINER_BUILD_PATH'
+                sh 'cp -R ./ $JENKINS_TMP_CONTAINER_BUILD_PATH'
+
+                dir(JENKINS_TMP_CONTAINER_BUILD_PATH) {
+                    sh 'mvn -N clean verify -Pintegration-tests-all -Dcdc-onboarding-web.docker-image.tag=${BOLGER_WEB_DOCKER_IMAGE_TAG} -Dcdc-onboarding-ui.docker-image.tag=${BOLGER_UI_DOCKER_IMAGE_TAG}'
+                }
+            }
+        } finally {
+            // ensure the mapped m2 cache and target can be cleaned up by host/jenkins
+            sh 'docker run -v $JENKINS_TMP_HOST_BUILD_PATH:/tmp/src/bolger -v $JENKINS_TMP_HOST_BUILD/.m2:/root/.m2 -w /tmp/src/bolger --rm --name bolger-build alpine /bin/sh -c "chmod -R go+rw /root/.m2 && chmod -R go+rw ./"'
+            sh 'rm -rf $JENKINS_TMP_CONTAINER_BUILD_PATH'
+        }
+
+        stage('Notify') {
+            slackSend color: 'good', message: "cdc client onboarding/${JOB_BASE_NAME} Build - SUCCESS"
+        }
+        } finally {
+            // remove the docker image
+            sh 'docker rmi aurotfp/bolger-ui:${BOLGER_UI_DOCKER_IMAGE_TAG}'
+            sh 'docker rmi aurotfp/bolger-web:${BOLGER_WEB_DOCKER_IMAGE_TAG}'
+        }
+    }
+}
+catch (ex) {
+    slackSend color: 'bad', message: "cdc client onboarding/${JOB_BASE_NAME} Build - FAIL"
+    throw ex
+}
+}
+
+

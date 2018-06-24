@@ -1,0 +1,27 @@
+version: "3"
+services:
+  bolger-db:
+    volumes:
+      # setup bolger database and user account
+      - $PWD/bolger-web/mongo-entrypoint-prod/:/docker-entrypoint-initdb.d
+    ports:
+      - 57018:27017
+  fenergo-cdm-integration:
+    image: aurotfp/fenergo-cdm-integration:latest
+    environment:
+      - MONGODB_HOST=mongo
+      - MONGODB_PORT=27017
+      - PROFILE=sandbox
+    ports:
+      - 8080:8080
+    links:
+      - bolger-db:mongo
+    restart: on-failure:50
+    depends_on:
+      - bolger-db
+    extra_hosts:
+      - "fendb:192.168.4.124"
+      - "fenapp:192.168.4.46"
+  bolger-ui:
+    ports:
+      - 443:443
