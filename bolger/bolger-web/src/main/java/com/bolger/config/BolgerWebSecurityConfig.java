@@ -26,9 +26,9 @@ public class BolgerWebSecurityConfig extends WebSecurityConfigurerAdapter {
                         "/swagger-ui.html",
                         "/swagger-resources/*/**",
                         "/swagger-resources",
-                        "/api/v2/api-docs",
                         "/v2/api-docs",
-                        "/webjars/**"
+                        "/webjars/**",
+                        "/metrics"
                 )
                 .permitAll()
                 .anyRequest()

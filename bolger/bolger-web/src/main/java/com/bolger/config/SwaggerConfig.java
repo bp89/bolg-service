@@ -34,12 +34,13 @@ public class SwaggerConfig {
         return new Docket(DocumentationType.SWAGGER_2)
                 .select()
                 .apis(RequestHandlerSelectors.basePackage("com.bolger.rest"))
-                .paths(PathSelectors.ant("/api/*"))
+                .paths(PathSelectors.any())
                 .build()
                 ;
     }
 
-    private ApiKey apiKey() {
+    //TODO : Remove when improved the documentation
+    /*private ApiKey apiKey() {
         return new ApiKey("mykey", "api_key", "header");
     }
 
@@ -84,8 +85,8 @@ public class SwaggerConfig {
                 .maxDisplayedTags(null)
                 .operationsSorter(OperationsSorter.ALPHA)
                 .showExtensions(false)
-//                .supportedSubmitMethods(UiConfiguration.Constants.DEFAULT_SUBMIT_METHODS)
+                .supportedSubmitMethods(UiConfiguration.Constants.DEFAULT_SUBMIT_METHODS)
                 .validatorUrl(null)
                 .build();
-    }
+    }*/
 }
